@@ -14,15 +14,17 @@ import javax.swing.JTextField;
 import javax.swing.SwingUtilities;
 import javax.swing.table.DefaultTableModel;
 
-public class PersonalFinanceApp {
+import entities.Expense;
+import utils.DatabaseManager;
 
+public class PersonalFinanceApp {
     private JFrame frame;
     private JTextField descriptionField;
     private JTextField amountField;
     private JTable table;
     private DefaultTableModel tableModel;
     private JLabel totalLabel;
-    private double totalAmount = 0.0;
+    private DatabaseManager dbManager;
 
     public static void main(String[] args) {
         SwingUtilities.invokeLater(() -> {
@@ -36,6 +38,12 @@ public class PersonalFinanceApp {
     }
 
     public PersonalFinanceApp() {
+        dbManager = new DatabaseManager();
+        initializeUI();
+        loadExpensesFromDatabase();
+    }
+
+    private void initializeUI() {
         frame = new JFrame("Pengelolaan Uang Pribadi");
         frame.setSize(800, 800);
         frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
@@ -50,8 +58,8 @@ public class PersonalFinanceApp {
         descriptionField = new JTextField(20);
         JLabel amountLabel = new JLabel("Jumlah:");
         amountField = new JTextField(10);
-        JButton addButton = new JButton("Tambah");
-        JButton deleteButton = new JButton("Hapus");
+        JButton addButton = new JButton("Tambah Pengeluaran");
+        JButton deleteButton = new JButton("Hapus Pengeluaran");
 
         inputPanel.add(descriptionLabel);
         inputPanel.add(descriptionField);
@@ -79,51 +87,76 @@ public class PersonalFinanceApp {
 
         addButton.addActionListener(new ActionListener() {
             public void actionPerformed(ActionEvent e) {
-                String description = descriptionField.getText();
-                String amountText = amountField.getText();
-
-                if (description.isEmpty() || amountText.isEmpty()) {
-                    JOptionPane.showMessageDialog(frame, "Deskripsi dan jumlah tidak boleh kosong!", "Error",
-                            JOptionPane.ERROR_MESSAGE);
-                    return;
-                }
-
-                try {
-                    double amount = Double.parseDouble(amountText);
-                    if (amount <= 0) {
-                        JOptionPane.showMessageDialog(frame, "Jumlah harus lebih besar dari 0!", "Error",
-                                JOptionPane.ERROR_MESSAGE);
-                        return;
-                    }
-
-                    tableModel.addRow(new Object[] { description, "Rp " + String.format("%.2f", amount) });
-                    totalAmount += amount;
-                    totalLabel.setText("Total Pengeluaran: Rp " + String.format("%.2f", totalAmount));
-
-                    descriptionField.setText("");
-                    amountField.setText("");
-
-                } catch (NumberFormatException ex) {
-                    JOptionPane.showMessageDialog(frame, "Jumlah harus berupa angka!", "Error",
-                            JOptionPane.ERROR_MESSAGE);
-                }
+                addExpense();
             }
         });
 
         deleteButton.addActionListener(new ActionListener() {
             public void actionPerformed(ActionEvent e) {
-                int selectedRow = table.getSelectedRow();
-                if (selectedRow != -1) {
-                    double amount = Double.parseDouble(
-                            table.getValueAt(selectedRow, 1).toString().replace("Rp ", "").replace(",", ""));
-                    tableModel.removeRow(selectedRow);
-                    totalAmount -= amount;
-                    totalLabel.setText("Total Pengeluaran: Rp " + String.format("%.2f", totalAmount));
-                } else {
-                    JOptionPane.showMessageDialog(frame, "Pilih pengeluaran yang ingin dihapus!", "Error",
-                            JOptionPane.ERROR_MESSAGE);
-                }
+                deleteExpense();
             }
         });
+    }
+
+    private void addExpense() {
+        String description = descriptionField.getText();
+        String amountText = amountField.getText();
+
+        if (description.isEmpty() || amountText.isEmpty()) {
+            JOptionPane.showMessageDialog(frame, "Deskripsi dan jumlah tidak boleh kosong!", "Error",
+                    JOptionPane.ERROR_MESSAGE);
+            return;
+        }
+
+        try {
+            double amount = Double.parseDouble(amountText);
+            if (amount <= 0) {
+                JOptionPane.showMessageDialog(frame, "Jumlah harus lebih besar dari 0!", "Error",
+                        JOptionPane.ERROR_MESSAGE);
+                return;
+            }
+
+            Expense expense = new Expense(description, amount);
+            dbManager.addExpense(expense);
+            tableModel.addRow(
+                    new Object[] { expense.getDescription(), "Rp " + String.format("%.2f", expense.getAmount()) });
+            updateTotalLabel();
+
+            descriptionField.setText("");
+            amountField.setText("");
+
+        } catch (NumberFormatException ex) {
+            JOptionPane.showMessageDialog(frame, "Jumlah harus berupa angka!", "Error", JOptionPane.ERROR_MESSAGE);
+        }
+    }
+
+    private void deleteExpense() {
+        int selectedRow = table.getSelectedRow();
+        if (selectedRow != -1) {
+            String description = table.getValueAt(selectedRow, 0).toString();
+            double amount = Double
+                    .parseDouble(table.getValueAt(selectedRow, 1).toString().replace("Rp ", "").replace(",", ""));
+            Expense expense = new Expense(description, amount);
+            dbManager.deleteExpense(expense);
+
+            tableModel.removeRow(selectedRow);
+            updateTotalLabel();
+        } else {
+            JOptionPane.showMessageDialog(frame, "Pilih pengeluaran yang ingin dihapus!", "Error",
+                    JOptionPane.ERROR_MESSAGE);
+        }
+    }
+
+    private void updateTotalLabel() {
+        double totalAmount = dbManager.getTotalAmount();
+        totalLabel.setText("Total Pengeluaran: Rp " + String.format("%.2f", totalAmount));
+    }
+
+    private void loadExpensesFromDatabase() {
+        dbManager.getExpenses().forEach(expense -> {
+            tableModel.addRow(
+                    new Object[] { expense.getDescription(), "Rp " + String.format("%.2f", expense.getAmount()) });
+        });
+        updateTotalLabel();
     }
 }
