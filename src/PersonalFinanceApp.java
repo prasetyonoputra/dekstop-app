@@ -1,8 +1,15 @@
+import java.awt.BorderLayout;
+import java.awt.Color;
 import java.awt.FlowLayout;
+import java.awt.Font;
+import java.awt.GridBagConstraints;
+import java.awt.GridBagLayout;
+import java.awt.Insets;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
+import java.util.Date;
 
-import javax.swing.BoxLayout;
+import javax.swing.BorderFactory;
 import javax.swing.JButton;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
@@ -11,8 +18,10 @@ import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import javax.swing.JTable;
 import javax.swing.JTextField;
+import javax.swing.SwingConstants;
 import javax.swing.SwingUtilities;
 import javax.swing.table.DefaultTableModel;
+import javax.swing.table.TableColumn;
 
 import entities.Expense;
 import utils.DatabaseManager;
@@ -45,46 +54,99 @@ public class PersonalFinanceApp {
 
     private void initializeUI() {
         frame = new JFrame("Pengelolaan Uang Pribadi");
-        frame.setSize(800, 800);
+        frame.setExtendedState(JFrame.MAXIMIZED_BOTH);
         frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-        frame.setLocationRelativeTo(null);
 
-        JPanel panel = new JPanel();
-        panel.setLayout(new BoxLayout(panel, BoxLayout.Y_AXIS));
+        frame.setLayout(new BorderLayout());
 
-        JPanel inputPanel = new JPanel();
-        inputPanel.setLayout(new FlowLayout());
+        // Header
+        JLabel headerLabel = new JLabel("Pengelolaan Uang Pribadi", SwingConstants.CENTER);
+        headerLabel.setFont(new Font("Segoe UI", Font.BOLD, 24));
+        headerLabel.setOpaque(true);
+        headerLabel.setBackground(new Color(63, 81, 181));
+        headerLabel.setForeground(Color.WHITE);
+        headerLabel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
+        frame.add(headerLabel, BorderLayout.NORTH);
+
+        // Input Panel
+        JPanel inputPanel = new JPanel(new GridBagLayout());
+        inputPanel.setBorder(BorderFactory.createTitledBorder("Tambah Pengeluaran"));
+        inputPanel.setBackground(Color.WHITE);
+
+        GridBagConstraints gbc = new GridBagConstraints();
+        gbc.insets = new Insets(5, 5, 5, 5);
+
         JLabel descriptionLabel = new JLabel("Deskripsi:");
+        descriptionLabel.setFont(new Font("Segoe UI", Font.PLAIN, 14));
         descriptionField = new JTextField(20);
+
         JLabel amountLabel = new JLabel("Jumlah:");
-        amountField = new JTextField(10);
-        JButton addButton = new JButton("Tambah Pengeluaran");
-        JButton deleteButton = new JButton("Hapus Pengeluaran");
+        amountLabel.setFont(new Font("Segoe UI", Font.PLAIN, 14));
+        amountField = new JTextField(20);
 
-        inputPanel.add(descriptionLabel);
-        inputPanel.add(descriptionField);
-        inputPanel.add(amountLabel);
-        inputPanel.add(amountField);
-        inputPanel.add(addButton);
-        inputPanel.add(deleteButton);
+        JButton addButton = new JButton("Tambah");
+        addButton.setFont(new Font("Segoe UI", Font.PLAIN, 14));
+        addButton.setBackground(new Color(76, 175, 80));
+        addButton.setForeground(Color.WHITE);
 
-        JPanel tablePanel = new JPanel();
+        JButton deleteButton = new JButton("Hapus");
+        deleteButton.setFont(new Font("Segoe UI", Font.PLAIN, 14));
+        deleteButton.setBackground(new Color(244, 67, 54));
+        deleteButton.setForeground(Color.WHITE);
+
+        gbc.gridx = 0;
+        gbc.gridy = 0;
+        inputPanel.add(descriptionLabel, gbc);
+        gbc.gridx = 1;
+        inputPanel.add(descriptionField, gbc);
+
+        gbc.gridx = 0;
+        gbc.gridy = 1;
+        inputPanel.add(amountLabel, gbc);
+        gbc.gridx = 1;
+        inputPanel.add(amountField, gbc);
+
+        gbc.gridx = 0;
+        gbc.gridy = 2;
+        gbc.gridwidth = 2;
+        inputPanel.add(addButton, gbc);
+
+        gbc.gridx = 0;
+        gbc.gridy = 3;
+        inputPanel.add(deleteButton, gbc);
+
+        frame.add(inputPanel, BorderLayout.WEST);
+
+        // Table Panel
         tableModel = new DefaultTableModel();
+        tableModel.addColumn("Id");
         tableModel.addColumn("Deskripsi");
         tableModel.addColumn("Jumlah");
+        tableModel.addColumn("Tanggal");
+
         table = new JTable(tableModel);
+        table.setFont(new Font("Segoe UI", Font.PLAIN, 14));
+        table.setRowHeight(24);
         JScrollPane scrollPane = new JScrollPane(table);
-        tablePanel.add(scrollPane);
+        scrollPane.setBorder(BorderFactory.createTitledBorder("Riwayat Pengeluaran"));
 
-        JPanel totalPanel = new JPanel();
+        TableColumn column = table.getColumnModel().getColumn(0);
+        column.setMinWidth(0);
+        column.setMaxWidth(0);
+        column.setPreferredWidth(0);
+
+        frame.add(scrollPane, BorderLayout.CENTER);
+
+        // Footer Panel
+        JPanel footerPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT));
+        footerPanel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
         totalLabel = new JLabel("Total Pengeluaran: Rp 0.00");
-        totalPanel.add(totalLabel);
+        totalLabel.setFont(new Font("Segoe UI", Font.BOLD, 16));
+        footerPanel.add(totalLabel);
 
-        panel.add(inputPanel);
-        panel.add(tablePanel);
-        panel.add(totalPanel);
-        frame.add(panel);
+        frame.add(footerPanel, BorderLayout.SOUTH);
 
+        // Action Listeners
         addButton.addActionListener(new ActionListener() {
             public void actionPerformed(ActionEvent e) {
                 addExpense();
@@ -116,11 +178,19 @@ public class PersonalFinanceApp {
                 return;
             }
 
-            Expense expense = new Expense(description, amount);
-            dbManager.addExpense(expense);
-            tableModel.addRow(
-                    new Object[] { expense.getDescription(), "Rp " + String.format("%.2f", expense.getAmount()) });
-            updateTotalLabel();
+            Expense expense = new Expense(0, description, amount, new Date(), null);
+            expense = dbManager.addExpense(expense);
+
+            if (expense.getId() != 0) {
+                tableModel.addRow(
+                        new Object[] { expense.getId(), expense.getDescription(),
+                                "Rp " + String.format("%.2f", expense.getAmount()), expense.getCreatedDate() });
+
+                updateTotalLabel();
+            } else {
+                JOptionPane.showMessageDialog(frame, "Error on save data!", "Error",
+                        JOptionPane.ERROR_MESSAGE);
+            }
 
             descriptionField.setText("");
             amountField.setText("");
@@ -155,8 +225,10 @@ public class PersonalFinanceApp {
     private void loadExpensesFromDatabase() {
         dbManager.getExpenses().forEach(expense -> {
             tableModel.addRow(
-                    new Object[] { expense.getDescription(), "Rp " + String.format("%.2f", expense.getAmount()) });
+                    new Object[] { expense.getId(), expense.getDescription(),
+                            "Rp " + String.format("%.2f", expense.getAmount()), expense.getCreatedDate() });
         });
+
         updateTotalLabel();
     }
 }

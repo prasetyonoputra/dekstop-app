@@ -7,6 +7,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
 
 import entities.Expense;
@@ -26,14 +27,29 @@ public class DatabaseManager {
         }
     }
 
-    public void addExpense(Expense expense) {
-        String query = "INSERT INTO expenses (description, amount) VALUES (?, ?)";
-        try (PreparedStatement stmt = connection.prepareStatement(query)) {
+    public Expense addExpense(Expense expense) {
+        String query = "INSERT INTO expenses (description, amount, created_date) VALUES (?, ?, ?)";
+        try (PreparedStatement stmt = connection.prepareStatement(query, Statement.RETURN_GENERATED_KEYS)) {
             stmt.setString(1, expense.getDescription());
             stmt.setDouble(2, expense.getAmount());
-            stmt.executeUpdate();
+            stmt.setDate(3, new java.sql.Date(expense.getCreatedDate().getTime()));
+
+            int affectedRows = stmt.executeUpdate();
+
+            if (affectedRows > 0) {
+                try (ResultSet generatedKeys = stmt.getGeneratedKeys()) {
+                    if (generatedKeys.next()) {
+                        int id = generatedKeys.getInt(1);
+                        expense.setId(id);
+                    }
+                }
+            }
+
+            return expense;
         } catch (SQLException e) {
             e.printStackTrace();
+
+            return expense;
         }
     }
 
@@ -50,12 +66,15 @@ public class DatabaseManager {
 
     public List<Expense> getExpenses() {
         List<Expense> expenses = new ArrayList<>();
-        String query = "SELECT description, amount FROM expenses";
+        String query = "SELECT * FROM expenses";
         try (Statement stmt = connection.createStatement(); ResultSet rs = stmt.executeQuery(query)) {
             while (rs.next()) {
+                long id = Long.valueOf(rs.getInt("id"));
                 String description = rs.getString("description");
                 double amount = rs.getDouble("amount");
-                expenses.add(new Expense(description, amount));
+                Date createdDate = rs.getDate("created_date");
+                Date updatedDate = rs.getDate("updated_date");
+                expenses.add(new Expense(id, description, amount, createdDate, updatedDate));
             }
         } catch (SQLException e) {
             e.printStackTrace();
